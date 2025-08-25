@@ -1,0 +1,80 @@
+version: '3.8'
+
+services:
+  # Redis for Dapr state store
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - dapr-network
+
+  # Dapr placement service (must start first)
+  dapr-placement:
+    image: daprio/placement:1.15.8
+    container_name: dapr-placement
+    restart: unless-stopped
+    ports:
+      - "50015:50015"
+    networks:
+      - dapr-network
+    command: ["./placement", "--port", "50015", "--log-level", "debug"]
+
+  # Dapr scheduler service  
+  dapr-scheduler:
+    image: daprio/scheduler:1.15.8
+    container_name: dapr-scheduler
+    restart: unless-stopped
+    ports:
+      - "50016:50016"
+    networks:
+      - dapr-network
+    command: ["./scheduler", "--port", "50016", "--etcd-data-dir", "/data", "--log-level", "debug"]
+    user: root
+    depends_on:
+      - dapr-placement
+
+  # FastAPI application
+  fastapi:
+    build: .
+    ports:
+      - "8080:8080"
+    depends_on:
+      - redis
+      - dapr-placement
+      - dapr-scheduler
+    command: bash -c "uvicorn main:app --host 0.0.0.0 --port 8080 --reload --reload-dir ."
+    networks:
+      - dapr-network
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./dapr:/app/dapr
+      - ./main.py:/app/main.py
+
+  # Dapr sidecar
+  dapr:
+    image: daprio/daprd:1.15.8
+    command: [
+      "./daprd",
+      "-app-id", "fastapi",
+      "-app-port", "8080",
+      "-dapr-http-port", "3500",
+      "-dapr-grpc-port", "50001",
+      "-placement-host-address", "dapr-placement:50015",
+      "-scheduler-host-address", "dapr-scheduler:50016", 
+      "-config", "/dapr/config.yaml",
+      "--resources-path", "./dapr",
+      "--log-level", "debug"
+    ]
+    depends_on:
+      - fastapi
+      - dapr-placement
+      - dapr-scheduler
+    network_mode: "service:fastapi"
+    volumes:
+      - ./dapr:/dapr
+
+networks:
+  dapr-network:
+    driver: bridge

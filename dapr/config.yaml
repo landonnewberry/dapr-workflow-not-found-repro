@@ -1,0 +1,32 @@
+apiVersion: dapr.io/v1alpha1
+kind: Resiliency
+metadata:
+  name: resiliency-local
+spec:
+  policies:
+    retries:
+      DaprBuiltInActorReminderRetries:
+        duration: 300s
+        maxRetries: 3
+        policy: constant
+      DaprBuiltInActorRetries:
+        duration: 300s
+        maxRetries: 3
+        policy: constant
+      DaprBuiltInInitializationRetries:
+        duration: 300s
+        maxRetries: 3
+        policy: constant
+      DaprBuiltInServiceRetries:
+        duration: 300s
+        maxRetries: 3
+        policy: constant
+      general:
+        duration: 300s
+        maxRetries: 3
+        policy: constant
+  targets:
+    components:
+      test-dapr-state-store:
+        outbound:
+          retry: general

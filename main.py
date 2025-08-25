@@ -22,7 +22,6 @@ from dapr.clients import DaprClient
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Global workflow runtime - uses DAPR_GRPC_ENDPOINT env var automatically
 workflow_runtime = WorkflowRuntime()
 wf_client = wf.DaprWorkflowClient()
 retry_policy = wf.RetryPolicy(
